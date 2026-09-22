@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cipher</title>
+<meta name="description" content="AES, GCM, SHA-256 and HMAC written from scratch in JavaScript, with every AES round laid open and every result checked against NIST vectors and the browser's own WebCrypto." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0d1014; --card:#141920; --card2:#1a2029; --line:#252d38; --line2:#323c4a;
+  --ink:#e8ecf1; --sub:#9aa5b3; --dim:#657080;
+  --amber:#f2b84b; --teal:#5fd4c4; --red:#f07167; --green:#7bd88f;
+  --d:"Space Grotesk",system-ui,sans-serif; --m:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--d);font-size:14px;-webkit-font-smoothing:antialiased;min-height:100vh}
+header{display:flex;align-items:center;gap:18px;padding:18px 26px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font-size:22px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.brand svg{flex:none}
+.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px}
+.tabs button{background:none;border:0;color:var(--sub);font:600 13px var(--d);padding:7px 14px;border-radius:6px;cursor:pointer}
+.tabs button.on{background:var(--card2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
+header .src{margin-left:auto;font-family:var(--m);font-size:12px;color:var(--sub)}
+header .src a{color:var(--sub)}
+main{padding:22px 26px 40px;max-width:1480px;margin:0 auto}
+section{display:none} section.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:18px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.card+.card{margin-top:14px}
+h3{margin:0 0 12px;font-size:11px;font-family:var(--m);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);display:flex;justify-content:space-between;gap:10px}
+h3 em{font-style:normal;color:var(--dim);letter-spacing:.04em;text-transform:none}
+label{display:block;font-size:12px;color:var(--sub);margin:12px 0 5px}
+label:first-of-type{margin-top:0}
+input,textarea,select{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line2);border-radius:6px;padding:8px 10px;font-family:var(--m);font-size:12.5px;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--amber)}
+textarea{resize:vertical;min-height:74px;line-height:1.5}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+.seg{display:flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden;flex:none}
+.seg button{background:var(--bg);color:var(--sub);border:0;border-right:1px solid var(--line2);font:600 12px var(--d);padding:7px 11px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--amber);color:#1a1307}
+button.act{background:var(--amber);color:#1a1307;border:0;border-radius:6px;font:700 13px var(--d);padding:9px 14px;cursor:pointer}
+button.ghost{background:none;color:var(--ink);border:1px solid var(--line2);border-radius:6px;font:600 12.5px var(--d);padding:8px 12px;cursor:pointer}
+button.ghost:hover{border-color:var(--amber)}
+.hex{font-family:var(--m);font-size:12.5px;line-height:1.65;word-break:break-all;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 11px;min-height:38px}
+.hex .tag{color:var(--amber)}
+.ok{color:var(--green)} .bad{color:var(--red)}
+.note{font-size:12.5px;color:var(--sub);line-height:1.55;margin:8px 0 0}
+.meta{display:flex;gap:18px;font-family:var(--m);font-size:11.5px;color:var(--dim);margin-top:10px;flex-wrap:wrap}
+.meta b{color:var(--ink);font-weight:500}
+
+/* AES inspector */
+.stages{display:flex;gap:14px;flex-wrap:wrap}
+.stage{flex:none}
+.stage .t{font-family:var(--m);font-size:10.5px;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+.mat{display:grid;grid-template-columns:repeat(4,38px);grid-template-rows:repeat(4,38px);gap:3px}
+.mat div{display:flex;align-items:center;justify-content:center;font-family:var(--m);font-size:12.5px;font-weight:500;border-radius:4px;color:#0d1014;position:relative}
+.mat div.ch::after{content:"";position:absolute;right:3px;top:3px;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
+.arrow{align-self:center;color:var(--dim);font-family:var(--m);padding-top:18px}
+.rounds{display:flex;gap:4px;margin:4px 0 16px;flex-wrap:wrap}
+.rounds button{width:38px;height:32px;background:var(--bg);border:1px solid var(--line2);border-radius:5px;color:var(--sub);font:600 12px var(--m);cursor:pointer}
+.rounds button.on{background:var(--amber);border-color:var(--amber);color:#1a1307}
+.diff{display:flex;align-items:flex-end;gap:6px;height:92px;margin-top:6px}
+.diff .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end;height:100%}
+.diff .b i{display:block;width:100%;background:var(--teal);border-radius:3px 3px 0 0;min-height:2px}
+.diff .b span{font-family:var(--m);font-size:10px;color:var(--dim)}
+.diff .b em{font-style:normal;font-family:var(--m);font-size:10px;color:var(--ink)}
+.keys{font-family:var(--m);font-size:11.5px;display:grid;grid-template-columns:44px 1fr;gap:3px 10px;max-height:240px;overflow:auto}
+.keys span{color:var(--dim)} .keys b{font-weight:400;color:var(--sub)} .keys b.on{color:var(--amber)}
+
+/* SHA */
+.bits{display:grid;grid-template-columns:repeat(32,1fr);gap:2px;margin-top:8px}
+.bits i{aspect-ratio:1;border-radius:2px;background:var(--card2)}
+.bits i.on{background:var(--line2)}
+.bits i.x{background:var(--teal)}
+.sched{display:grid;grid-template-columns:repeat(16,1fr);gap:2px}
+.sched div{aspect-ratio:1.6;border-radius:3px;font-family:var(--m);font-size:8.5px;display:flex;align-items:center;justify-content:center;color:#0d1014;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-family:var(--m);font-size:11.5px}
+th{text-align:left;color:var(--dim);font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:0 8px 6px}
+td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:top;word-break:break-all}
+.rtab{max-height:330px;overflow:auto}
+.rtab td{padding:2px 8px;border-top:0;color:var(--sub)}
+.rtab td:first-child{color:var(--dim);width:36px}
+.rtab tr:nth-child(odd) td{background:rgba(255,255,255,.015)}
+.pill{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:99px;background:rgba(123,216,143,.12);color:var(--green)}
+.pill.bad{background:rgba(240,113,103,.14);color:var(--red)}
+.big{font-size:30px;font-weight:700;letter-spacing:-.02em}
+.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.sum .card{margin:0}
+.sum small{display:block;font-size:11px;color:var(--sub);margin-top:2px}
+@media (max-width:980px){.grid{grid-template-columns:1fr}.sum{grid-template-columns:1fr 1fr}main{padding:16px}header{padding:14px 16px}header .src{margin-left:0;width:100%}.mat{grid-template-columns:repeat(4,30px);grid-template-rows:repeat(4,30px)}.mat div{font-size:10.5px}.bits{grid-template-columns:repeat(16,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 26 26"><rect x="1" y="1" width="24" height="24" rx="6" fill="none" stroke="#f2b84b" stroke-width="2"/><path d="M7 9h4v4H7zM15 13h4v4h-4zM11 13h4v4h-4z" fill="#f2b84b"/><path d="M15 9h4v4h-4zM7 13h4v4H7z" fill="#5fd4c4"/></svg>Cipher</div>
+  <div class="tabs" id="tabs"><button data-t="aes" class="on">AES</button><button data-t="sha">SHA-256</button><button data-t="ver">Verify</button></div>
+  <div class="src">AES, GCM, SHA-256 and HMAC from scratch · <a href="https://github.com/bxzex/cipher">source</a></div>
+</header>
+<main>
+<!-- ================= AES ================= -->
+<section id="aes" class="on">
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Encrypt</h3>
+        <label>Key <span id="klen" style="float:right;color:var(--dim)"></span></label>
+        <input id="key" spellcheck="false" value="000102030405060708090a0b0c0d0e0f" />
+        <div class="row" style="margin-top:8px">
+          <div class="seg" id="ksize"><button data-k="16" class="on">128</button><button data-k="24">192</button><button data-k="32">256</button></div>
+          <button class="ghost" id="rkey" style="flex:none">Random key</button>
+        </div>
+        <label>Mode</label>
+        <div class="seg" id="mode" style="display:inline-flex"><button data-m="ECB">ECB</button><button data-m="CBC" class="on">CBC</button><button data-m="CTR">CTR</button><button data-m="GCM">GCM</button></div>
+        <label id="ivl">IV (16 bytes, hex)</label>
+        <input id="iv" spellcheck="false" value="f0e1d2c3b4a5968778695a4b3c2d1e0f" />
+        <div id="aadw" style="display:none"><label>Additional authenticated data</label><input id="aad" spellcheck="false" value="header v1" /></div>
+        <label>Plaintext</label>
+        <textarea id="pt" spellcheck="false">Attack at dawn. Bring the good maps.</textarea>
+        <label>Ciphertext <span style="float:right;color:var(--dim)" id="ctlen"></span></label>
+        <div class="hex" id="ct"></div>
+        <div class="meta"><span>round trip <b id="rt"></b></span><span>WebCrypto agrees <b id="wc">…</b></span></div>
+      </div>
+      <div class="card">
+        <h3>Key schedule <em id="ksn"></em></h3>
+        <div class="keys" id="keys"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Inside block 0 <em id="blk"></em></h3>
+        <div class="rounds" id="rounds"></div>
+        <div class="stages" id="stages"></div>
+        <p class="note" id="stnote"></p>
+      </div>
+      <div class="card">
+        <h3>Diffusion <em>flip one plaintext bit, count differing state bytes after each round</em></h3>
+        <div class="diff" id="diff"></div>
+        <p class="note">One flipped bit touches a single byte through the first SubBytes. MixColumns spreads it to a column, and ShiftRows then moves that column across all four. After two rounds every byte of the state depends on the bit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SHA ================= -->
+<section id="sha">
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>SHA-256</h3>
+        <label>Message</label>
+        <textarea id="msg" spellcheck="false">abc</textarea>
+        <label>Digest</label>
+        <div class="hex" id="dig"></div>
+        <div class="meta"><span>blocks <b id="nb"></b></span><span>WebCrypto agrees <b id="swc">…</b></span></div>
+      </div>
+      <div class="card">
+        <h3>HMAC-SHA256</h3>
+        <label>Key (text)</label>
+        <input id="hk" spellcheck="false" value="Jefe" />
+        <label>Tag over the message above</label>
+        <div class="hex" id="hmac"></div>
+        <div class="meta"><span>WebCrypto agrees <b id="hwc">…</b></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Avalanche <em id="avn"></em></h3>
+        <div class="row"><span style="flex:none;color:var(--sub);font-size:12.5px">Flip bit</span><input type="range" id="flip" min="0" max="23" value="0" style="padding:0" /><span id="flipn" style="flex:none;font-family:var(--m);font-size:12px;width:120px;text-align:right;white-space:nowrap"></span></div>
+        <div class="hex" id="dig2" style="margin-top:10px"></div>
+        <div class="bits" id="bits"></div>
+        <p class="note">Each square is one bit of the digest. Teal bits changed when a single input bit was flipped. A good hash flips about half of them, with no pattern.</p>
+      </div>
+      <div class="card">
+        <h3>Message schedule, block 0 <em>W0 to W63</em></h3>
+        <div class="sched" id="sched"></div>
+      </div>
+      <div class="card">
+        <h3>Compression rounds, block 0 <em>working variables a and e after each round</em></h3>
+        <div class="rtab"><table id="rtab"></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= VERIFY ================= -->
+<section id="ver">
+  <div class="sum">
+    <div class="card"><div class="big" id="v-nist">·</div><small>published test vectors</small></div>
+    <div class="card"><div class="big" id="v-diff">·</div><small>random cases against WebCrypto</small></div>
+    <div class="card"><div class="big" id="v-fail">·</div><small>mismatches</small></div>
+    <div class="card"><div class="big" id="v-ms">·</div><small>total time</small></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <h3>Published vectors <em>FIPS 197, FIPS 180-2, RFC 4231, the GCM spec</em></h3>
+      <table id="nist"><thead><tr><th>Case</th><th>Expected</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h3>Differential testing <em>random keys, IVs and lengths from 0 to 400 bytes</em></h3>
+      <table id="dt"><thead><tr><th>Primitive</th><th>Cases</th><th>Agree</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row" style="margin-top:14px"><button class="act" id="rerun" style="flex:none">Run again</button><span class="note" style="margin:0">Every case is computed twice, once here and once by the browser's native implementation, and the bytes compared.</span></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+"use strict";
+/* ================= bytes ================= */
+const te=new TextEncoder();
+const hex=u=>Array.from(u,b=>b.toString(16).padStart(2,"0")).join("");
+const unhex=s=>{ s=s.replace(/[^0-9a-f]/gi,""); if(s.length&1) s=s.slice(0,-1); const u=new Uint8Array(s.length/2); for(let i=0;i<u.length;i++) u[i]=parseInt(s.substr(i*2,2),16); return u; };
+const eq=(a,b)=>a.length===b.length&&a.every((x,i)=>x===b[i]);
+const rand=n=>crypto.getRandomValues(new Uint8Array(n));
+const cat=(...a)=>{ const u=new Uint8Array(a.reduce((s,x)=>s+x.length,0)); let o=0; for(const x of a){u.set(x,o);o+=x.length;} return u; };
+
+/* ================= AES (FIPS 197) ================= */
+const SBOX=new Uint8Array(256), INV=new Uint8Array(256);
+const xt=b=>((b<<1)^(b&0x80?0x1b:0))&0xff;
+function gmul(a,b){ let p=0; while(b){ if(b&1) p^=a; a=xt(a); b>>=1; } return p; }
+(function(){ // build the S-box from the field inverse and the affine map
+  const rl=(x,s)=>((x<<s)|(x>>(8-s)))&0xff;
+  let p=1,q=1;
+  do{
+    p=p^xt(p);                         // p *= 3
+    q^=q<<1; q^=q<<2; q^=q<<4; q&=0xff; if(q&0x80) q^=0x09; // q /= 3
+    SBOX[p]=(q^rl(q,1)^rl(q,2)^rl(q,3)^rl(q,4)^0x63);
+  }while(p!==1);
+  SBOX[0]=0x63;
+  for(let i=0;i<256;i++) INV[SBOX[i]]=i;
+})();
+function expandKey(key){
+  const Nk=key.length/4, Nr=Nk+6, w=new Uint8Array(16*(Nr+1)); w.set(key); let rc=1;
+  for(let i=Nk;i<4*(Nr+1);i++){
+    let t=[w[i*4-4],w[i*4-3],w[i*4-2],w[i*4-1]];
+    if(i%Nk===0){ t=[SBOX[t[1]]^rc,SBOX[t[2]],SBOX[t[3]],SBOX[t[0]]]; rc=xt(rc); }
+    else if(Nk>6&&i%Nk===4) t=t.map(b=>SBOX[b]);
+    for(let j=0;j<4;j++) w[i*4+j]=w[(i-Nk)*4+j]^t[j];
+  }
+  return {w,Nr};
+}
+const addKey=(s,w,r)=>{ for(let i=0;i<16;i++) s[i]^=w[r*16+i]; };
+const subBytes=(s,T)=>{ for(let i=0;i<16;i++) s[i]=T[s[i]]; };
+function shiftRows(s,inv){ const t=s.slice(); for(let r=1;r<4;r++) for(let c=0;c<4;c++) s[r+4*c]=t[r+4*((inv?c-r+4:c+r)%4)]; }
+function mixColumns(s,inv){
+  for(let c=0;c<4;c++){ const a=s.slice(4*c,4*c+4);
+    const m=inv?[14,11,13,9]:[2,3,1,1];
+    for(let r=0;r<4;r++) s[4*c+r]=gmul(a[0],m[(4-r)%4])^gmul(a[1],m[(5-r)%4])^gmul(a[2],m[(6-r)%4])^gmul(a[3],m[(7-r)%4]);
+  }
+}
+function encBlock(inp,ks,trace){
+  const s=inp.slice(), {w,Nr}=ks, snap=(r,n)=>trace&&trace.push({r,n,s:s.slice()});
+  snap(0,"Input"); addKey(s,w,0); snap(0,"AddRoundKey");
+  for(let r=1;r<=Nr;r++){
+    subBytes(s,SBOX); snap(r,"SubBytes");
+    shiftRows(s,false); snap(r,"ShiftRows");
+    if(r<Nr){ mixColumns(s,false); snap(r,"MixColumns"); }
+    addKey(s,w,r); snap(r,"AddRoundKey");
+  }
+  return s;
+}
+function decBlock(inp,ks){
+  const s=inp.slice(), {w,Nr}=ks; addKey(s,w,Nr);
+  for(let r=Nr-1;r>=0;r--){ shiftRows(s,true); subBytes(s,INV); addKey(s,w,r); if(r>0) mixColumns(s,true); }
+  return s;
+}
+/* modes */
+const pad=p=>{ const n=16-(p.length%16), u=new Uint8Array(p.length+n); u.set(p); u.fill(n,p.length); return u; };
+function unpad(u){ const n=u[u.length-1]; if(!n||n>16||u.length<n) throw new Error("bad padding"); for(let i=u.length-n;i<u.length;i++) if(u[i]!==n) throw new Error("bad padding"); return u.slice(0,u.length-n); }
+function ecb(key,pt,dec){ const ks=expandKey(key), src=dec?pt:pad(pt), out=new Uint8Array(src.length);
+  for(let i=0;i<src.length;i+=16) out.set((dec?decBlock:encBlock)(src.subarray(i,i+16),ks),i); return dec?unpad(out):out; }
+function cbc(key,iv,data,dec){ const ks=expandKey(key); let prev=iv.slice();
+  if(!dec){ const src=pad(data), out=new Uint8Array(src.length);
+    for(let i=0;i<src.length;i+=16){ const b=src.slice(i,i+16); for(let j=0;j<16;j++) b[j]^=prev[j]; prev=encBlock(b,ks); out.set(prev,i); } return out; }
+  const out=new Uint8Array(data.length);
+  for(let i=0;i<data.length;i+=16){ const c=data.slice(i,i+16), p=decBlock(c,ks); for(let j=0;j<16;j++) p[j]^=prev[j]; out.set(p,i); prev=c; }
+  return unpad(out);
+}
+function incr(ctr,bytes){ for(let i=15;i>=16-bytes;i--){ ctr[i]=(ctr[i]+1)&0xff; if(ctr[i]) break; } }
+function ctrXor(ks,ctr0,data,incBytes){ const ctr=ctr0.slice(), out=new Uint8Array(data.length);
+  for(let i=0;i<data.length;i+=16){ const k=encBlock(ctr,ks); for(let j=0;j<16&&i+j<data.length;j++) out[i+j]=data[i+j]^k[j]; incr(ctr,incBytes); }
+  return out; }
+const ctr=(key,iv,data)=>ctrXor(expandKey(key),iv,data,16);
+/* GCM (NIST SP 800-38D), 96-bit IV, 128-bit tag */
+const toBig=u=>{ let x=0n; for(const b of u) x=(x<<8n)|BigInt(b); return x; };
+const fromBig=x=>{ const u=new Uint8Array(16); for(let i=15;i>=0;i--){ u[i]=Number(x&255n); x>>=8n; } return u; };
+const GR=0xe1n<<120n;
+function gfmul(X,Y){ let Z=0n, V=Y; for(let i=127;i>=0;i--){ if((X>>BigInt(i))&1n) Z^=V; V=(V&1n)?(V>>1n)^GR:(V>>1n); } return Z; }
+function ghash(H,aad,c){
+  let Y=0n; const blocks=u=>{ for(let i=0;i<u.length;i+=16){ const b=new Uint8Array(16); b.set(u.subarray(i,i+16)); Y=gfmul(Y^toBig(b),H); } };
+  blocks(aad); blocks(c);
+  const L=new Uint8Array(16), dv=new DataView(L.buffer);
+  dv.setUint32(0,Math.floor(aad.length*8/2**32)); dv.setUint32(4,(aad.length*8)>>>0);
+  dv.setUint32(8,Math.floor(c.length*8/2**32)); dv.setUint32(12,(c.length*8)>>>0);
+  return gfmul(Y^toBig(L),H);
+}
+function gcm(key,iv,data,aad,dec){
+  const ks=expandKey(key), H=toBig(encBlock(new Uint8Array(16),ks));
+  const J0=new Uint8Array(16); J0.set(iv); J0[15]=1;
+  const c1=J0.slice(); incr(c1,4);
+  if(!dec){ const c=ctrXor(ks,c1,data,4); const tag=fromBig(ghash(H,aad,c)^toBig(encBlock(J0,ks))); return cat(c,tag); }
+  const c=data.subarray(0,data.length-16), tag=data.subarray(data.length-16);
+  const want=fromBig(ghash(H,aad,c)^toBig(encBlock(J0,ks)));
+  if(!eq(want,tag)) throw new Error("authentication failed");
+  return ctrXor(ks,c1,c,4);
+}
+
+/* ================= SHA-256 (FIPS 180-4) ================= */
+const KS=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+const ror=(x,n)=>(x>>>n)|(x<<(32-n));
+function sha256(msg,trace){
+  const H=new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+  const L=msg.length, n=((L+9+63)>>6)<<6, m=new Uint8Array(n); m.set(msg); m[L]=0x80;
+  const dv=new DataView(m.buffer); dv.setUint32(n-8,Math.floor(L/0x20000000)); dv.setUint32(n-4,(L<<3)>>>0);
+  const W=new Uint32Array(64);
+  for(let o=0;o<n;o+=64){
+    for(let i=0;i<16;i++) W[i]=dv.getUint32(o+i*4);
+    for(let i=16;i<64;i++){ const a=W[i-15], b=W[i-2];
+      W[i]=(W[i-16]+(ror(a,7)^ror(a,18)^(a>>>3))+W[i-7]+(ror(b,17)^ror(b,19)^(b>>>10)))>>>0; }
+    let [a,b,c,d,e,f,g,h]=H;
+    const rounds=trace&&o===0?[]:null;
+    for(let i=0;i<64;i++){
+      const t1=(h+(ror(e,6)^ror(e,11)^ror(e,25))+((e&f)^(~e&g))+KS[i]+W[i])>>>0;
+      const t2=((ror(a,2)^ror(a,13)^ror(a,22))+((a&b)^(a&c)^(b&c)))>>>0;
+      h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+      if(rounds) rounds.push([a,e]);
+    }
+    if(rounds){ trace.W=W.slice(); trace.rounds=rounds; trace.blocks=n/64; }
+    H[0]+=a; H[1]+=b; H[2]+=c; H[3]+=d; H[4]+=e; H[5]+=f; H[6]+=g; H[7]+=h;
+  }
+  const out=new Uint8Array(32), ov=new DataView(out.buffer); for(let i=0;i<8;i++) ov.setUint32(i*4,H[i]); return out;
+}
+function hmac(key,msg){
+  if(key.length>64) key=sha256(key);
+  const k=new Uint8Array(64); k.set(key);
+  const ip=k.map(b=>b^0x36), op=k.map(b=>b^0x5c);
+  return sha256(cat(op,sha256(cat(ip,msg))));
+}
+
+/* ================= WebCrypto reference ================= */
+const S=crypto.subtle;
+async function wcAes(mode,key,iv,pt,aad){
+  const k=await S.importKey("raw",key,{name:"AES-"+mode},false,["encrypt"]);
+  const alg=mode==="CBC"?{name:"AES-CBC",iv}:mode==="CTR"?{name:"AES-CTR",counter:iv,length:128}:{name:"AES-GCM",iv,additionalData:aad,tagLength:128};
+  return new Uint8Array(await S.encrypt(alg,k,pt));
+}
+const wcSha=async m=>new Uint8Array(await S.digest("SHA-256",m));
+async function wcHmac(key,m){ const k=await S.importKey("raw",key.length?key:new Uint8Array(1),{name:"HMAC",hash:"SHA-256",length:key.length?key.length*8:8},false,["sign"]); return new Uint8Array(await S.sign("HMAC",k,m)); }
+
+/* ================= UI helpers ================= */
+const $=s=>document.querySelector(s);
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===b.dataset.t));
+  if(b.dataset.t==="ver"&&!verified) runVerify();
+});
+function seg(id,cb){ document.querySelectorAll(id+" button").forEach(b=>b.onclick=()=>{ document.querySelectorAll(id+" button").forEach(x=>x.classList.toggle("on",x===b)); cb(b); }); }
+// byte colour: a dark to bright ramp from teal to amber, readable with dark text
+const RAMP=[[22,44,56],[38,120,128],[95,212,196],[242,184,75]];
+function bcol(v){ const t=v/255*3, i=Math.min(2,Math.floor(t)), f=t-i, a=RAMP[i], b=RAMP[i+1];
+  return "rgb("+a.map((x,k)=>Math.round(x+(b[k]-x)*f)).join(",")+")"; }
+const bink=v=>v<110?"#e8ecf1":"#0d1014";
+
+/* ================= AES tab ================= */
+const ivMem={16:"f0e1d2c3b4a5968778695a4b3c2d1e0f",12:"cafebabefacedbaddecaf888"};
+let mode="CBC", ksize=16, round=1, trace=[];
+seg("#ksize",b=>{ ksize=+b.dataset.k; const k=unhex($("#key").value); const n=new Uint8Array(ksize); for(let i=0;i<ksize;i++) n[i]=i<k.length?k[i]:i; $("#key").value=hex(n); round=Math.min(round,ksize/4+6); aesRun(); });
+seg("#mode",b=>{ mode=b.dataset.m;
+  $("#aadw").style.display=mode==="GCM"?"":"none";
+  $("#ivl").textContent=mode==="ECB"?"No IV in ECB mode":mode==="GCM"?"Nonce (12 bytes, hex)":mode==="CTR"?"Initial counter (16 bytes, hex)":"IV (16 bytes, hex)";
+  $("#iv").disabled=mode==="ECB";
+  const want=mode==="GCM"?12:16, cur=$("#iv").value; ivMem[unhex(cur).length]=cur; if(unhex(cur).length!==want) $("#iv").value=ivMem[want];
+  aesRun(); });
+$("#rkey").onclick=()=>{ $("#key").value=hex(rand(ksize)); aesRun(); };
+["#key","#iv","#pt","#aad"].forEach(s=>$(s).addEventListener("input",aesRun));
+
+function aesInputs(){
+  const k=unhex($("#key").value);
+  const kok=k.length===16||k.length===24||k.length===32;
+  $("#klen").textContent=k.length+" bytes"+(kok?", AES-"+k.length*8:", needs 16, 24 or 32");
+  $("#klen").style.color=kok?"var(--dim)":"var(--red)";
+  if(kok&&k.length!==ksize){ ksize=k.length; document.querySelectorAll("#ksize button").forEach(x=>x.classList.toggle("on",+x.dataset.k===ksize)); }
+  const iv=unhex($("#iv").value), ivn=mode==="GCM"?12:16;
+  return {k,kok,iv,ivok:mode==="ECB"||iv.length===ivn,pt:te.encode($("#pt").value),aad:te.encode($("#aad").value)};
+}
+let wcToken=0;
+function aesRun(){
+  const {k,kok,iv,ivok,pt,aad}=aesInputs();
+  if(!kok||!ivok){ $("#ct").textContent=!kok?"Key must be 16, 24 or 32 bytes of hex.":"IV must be "+(mode==="GCM"?12:16)+" bytes of hex."; return; }
+  let ct;
+  if(mode==="ECB") ct=ecb(k,pt); else if(mode==="CBC") ct=cbc(k,iv,pt); else if(mode==="CTR") ct=ctr(k,iv,pt); else ct=gcm(k,iv,pt,aad);
+  const h=hex(ct);
+  $("#ct").innerHTML=mode==="GCM"?h.slice(0,-32)+'<span class="tag">'+h.slice(-32)+"</span>":h;
+  $("#ctlen").textContent=ct.length+" bytes"+(mode==="GCM"?", last 16 are the tag":"");
+  let back;
+  try{ back=mode==="ECB"?ecb(k,ct,true):mode==="CBC"?cbc(k,iv,ct,true):mode==="CTR"?ctr(k,iv,ct):gcm(k,iv,ct,aad,true); }catch(e){ back=null; }
+  $("#rt").innerHTML=back&&eq(back,pt)?'<span class="ok">decrypts to the plaintext</span>':'<span class="bad">failed</span>';
+  const tok=++wcToken;
+  if(mode==="ECB"){ $("#wc").innerHTML='<span style="color:var(--dim)">WebCrypto has no ECB. Checked per block in Verify.</span>'; }
+  else if(k.length===24){ $("#wc").innerHTML='<span style="color:var(--dim)">Chrome\'s WebCrypto has no AES-192. The FIPS 197 vector covers it.</span>'; }
+  else wcAes(mode,k,iv,pt,aad).then(r=>{ if(tok===wcToken) $("#wc").innerHTML=eq(r,ct)?'<span class="ok">yes, byte for byte</span>':'<span class="bad">NO</span>'; }).catch(e=>{ if(tok===wcToken) $("#wc").textContent=e.message; });
+
+  // inspector on the first block the cipher actually sees
+  const ks=expandKey(k);
+  let b0;
+  if(mode==="ECB") b0=pad(pt).slice(0,16);
+  else if(mode==="CBC"){ b0=pad(pt).slice(0,16); for(let j=0;j<16;j++) b0[j]^=iv[j]; }
+  else if(mode==="CTR") b0=iv.slice();
+  else { b0=new Uint8Array(16); b0.set(iv); b0[15]=2; }
+  $("#blk").textContent=mode==="ECB"?"the first padded plaintext block":mode==="CBC"?"plaintext block 0 XOR the IV":mode==="CTR"?"the counter block, whose output is XORed with the plaintext":"the counter block J0+1";
+  trace=[]; encBlock(b0,ks,trace);
+  round=Math.min(round,ks.Nr);
+  drawRounds(ks.Nr); drawStages(); drawKeys(ks);
+  // diffusion: flip bit 0 of this block
+  const b1=b0.slice(); b1[0]^=1; const t2=[]; encBlock(b1,ks,t2);
+  const counts=[]; for(let r=0;r<=ks.Nr;r++){ const a=trace.filter(x=>x.r===r).pop().s, b=t2.filter(x=>x.r===r).pop().s; counts.push(a.reduce((n,v,i)=>n+(v!==b[i]),0)); }
+  $("#diff").innerHTML=counts.map((c,r)=>`<div class="b"><em>${c}</em><i style="height:${(c/16*70).toFixed(0)}px"></i><span>${r?"R"+r:"in"}</span></div>`).join("");
+}
+function drawRounds(Nr){
+  const el=$("#rounds"); el.innerHTML="";
+  for(let r=0;r<=Nr;r++){ const b=document.createElement("button"); b.textContent=r?"R"+r:"R0"; b.className=r===round?"on":""; b.onclick=()=>{ round=r; drawRounds(Nr); drawStages(); drawKeys(expandKey(unhex($("#key").value))); }; el.appendChild(b); }
+}
+const NOTES={
+  Input:"The 16 input bytes fill the state column by column.",
+  AddRoundKey:"XOR with this round's 16 bytes of the expanded key. It is the only step that involves the key.",
+  SubBytes:"Every byte goes through the S-box: its inverse in GF(2^8), then a fixed affine map. This is the only non-linear step. The table is built at load from the field arithmetic, not pasted in.",
+  ShiftRows:"Row r rotates left by r places, so each column now holds bytes from four different columns.",
+  MixColumns:"Each column is multiplied by a fixed matrix over GF(2^8). A change in one byte reaches all four bytes of its column. The last round skips this step."
+};
+function drawStages(){
+  const st=trace.filter(x=>x.r===round), prev=trace[trace.indexOf(st[0])-1];
+  const el=$("#stages"); el.innerHTML="";
+  st.forEach((x,i)=>{
+    const before=i?st[i-1].s:prev?prev.s:null;
+    if(i){ const a=document.createElement("div"); a.className="arrow"; a.textContent="→"; el.appendChild(a); }
+    const d=document.createElement("div"); d.className="stage";
+    d.innerHTML=`<div class="t"><span>${x.n}</span></div>`;
+    const m=document.createElement("div"); m.className="mat";
+    for(let r=0;r<4;r++) for(let c=0;c<4;c++){ const v=x.s[r+4*c], e=document.createElement("div");
+      e.textContent=v.toString(16).padStart(2,"0"); e.style.background=bcol(v); e.style.color=bink(v);
+      if(before&&before[r+4*c]!==v) e.className="ch"; m.appendChild(e); }
+    d.appendChild(m); el.appendChild(d);
+  });
+  const last=round===0?"This is the whitening step before round 1.":round===Math.max(...trace.map(x=>x.r))?"The final round, with no MixColumns. Its output is the ciphertext block.":"";
+  $("#stnote").textContent=st.map(x=>NOTES[x.n]).filter((v,i,a)=>a.indexOf(v)===i).join(" ")+" "+last+" A dot marks each byte that step changed.";
+}
+function drawKeys(ks){
+  $("#ksn").textContent=ks.w.length/4+" words, "+(ks.Nr+1)+" round keys";
+  let h=""; for(let r=0;r<=ks.Nr;r++) h+=`<span>R${r}</span><b class="${r===round?"on":""}">${hex(ks.w.subarray(r*16,r*16+16)).replace(/(.{8})/g,"$1 ")}</b>`;
+  $("#keys").innerHTML=h;
+}
+
+/* ================= SHA tab ================= */
+function shaRun(){
+  const m=te.encode($("#msg").value), tr={};
+  const d=sha256(m,tr);
+  $("#dig").textContent=hex(d); $("#nb").textContent=tr.blocks;
+  wcSha(m).then(r=>$("#swc").innerHTML=eq(r,d)?'<span class="ok">yes</span>':'<span class="bad">NO</span>');
+  const hk=te.encode($("#hk").value), t=hmac(hk,m);
+  $("#hmac").textContent=hex(t);
+  if(hk.length) wcHmac(hk,m).then(r=>$("#hwc").innerHTML=eq(r,t)?'<span class="ok">yes</span>':'<span class="bad">NO</span>'); else $("#hwc").textContent="WebCrypto rejects an empty key";
+  // avalanche
+  const fl=$("#flip"); fl.max=Math.max(0,m.length*8-1); if(+fl.value>+fl.max) fl.value=fl.max;
+  const bit=+fl.value;
+  $("#flipn").textContent=m.length?"byte "+(bit>>3)+" · bit "+(7-(bit&7)):"(empty)";
+  const m2=m.slice(); if(m.length) m2[bit>>3]^=0x80>>(bit&7);
+  const d2=sha256(m2);
+  let changed=0, cells="";
+  for(let i=0;i<256;i++){ const a=(d[i>>3]>>(7-(i&7)))&1, b=(d2[i>>3]>>(7-(i&7)))&1; if(a!==b) changed++; cells+=`<i class="${a!==b?"x":a?"on":""}"></i>`; }
+  $("#bits").innerHTML=cells;
+  $("#dig2").innerHTML=Array.from(d2,(b,i)=>{ const s=b.toString(16).padStart(2,"0"); return b!==d[i]?`<span style="color:var(--teal)">${s}</span>`:s; }).join("");
+  $("#avn").textContent=m.length?changed+" of 256 bits changed ("+(changed/2.56).toFixed(1)+"%)":"type a message";
+  // schedule
+  const W=tr.W, mx=4294967295;
+  $("#sched").innerHTML=Array.from(W,(w,i)=>`<div title="W${i} = ${w.toString(16).padStart(8,"0")}" style="background:${bcol(Math.round(w/mx*255))};color:${bink(Math.round(w/mx*255))}">${w.toString(16).padStart(8,"0").slice(0,4)}</div>`).join("");
+  $("#rtab").innerHTML="<tr><th>t</th><th>a</th><th>e</th></tr>"+tr.rounds.map((x,i)=>`<tr><td>${i}</td><td>${x[0].toString(16).padStart(8,"0")}</td><td>${x[1].toString(16).padStart(8,"0")}</td></tr>`).join("");
+}
+["#msg","#hk","#flip"].forEach(s=>$(s).addEventListener("input",shaRun));
+
+/* ================= Verify ================= */
+const ascii=s=>te.encode(s);
+const NIST=[
+  ["AES-128, FIPS 197 C.1",()=>encBlock(unhex("00112233445566778899aabbccddeeff"),expandKey(unhex("000102030405060708090a0b0c0d0e0f"))),"69c4e0d86a7b0430d8cdb78070b4c55a"],
+  ["AES-192, FIPS 197 C.2",()=>encBlock(unhex("00112233445566778899aabbccddeeff"),expandKey(unhex("000102030405060708090a0b0c0d0e0f1011121314151617"))),"dda97ca4864cdfe06eaf70a0ec0d7191"],
+  ["AES-256, FIPS 197 C.3",()=>encBlock(unhex("00112233445566778899aabbccddeeff"),expandKey(unhex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"))),"8ea2b7ca516745bfeafc49904b496089"],
+  ["AES-128 inverse, FIPS 197 C.1",()=>decBlock(unhex("69c4e0d86a7b0430d8cdb78070b4c55a"),expandKey(unhex("000102030405060708090a0b0c0d0e0f"))),"00112233445566778899aabbccddeeff"],
+  ["AES-256 inverse, FIPS 197 C.3",()=>decBlock(unhex("8ea2b7ca516745bfeafc49904b496089"),expandKey(unhex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"))),"00112233445566778899aabbccddeeff"],
+  ["GCM test case 1, empty",()=>gcm(new Uint8Array(16),new Uint8Array(12),new Uint8Array(0),new Uint8Array(0)),"58e2fccefa7e3061367f1d57a4e7455a"],
+  ["GCM test case 2",()=>gcm(new Uint8Array(16),new Uint8Array(12),new Uint8Array(16),new Uint8Array(0)),"0388dace60b6a392f328c2b971b2fe78ab6e47d42cec13bdf53a67b21257bddf"],
+  ["SHA-256 \"abc\"",()=>sha256(ascii("abc")),"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"],
+  ["SHA-256 empty",()=>sha256(new Uint8Array(0)),"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"],
+  ["SHA-256 448 bit, two blocks",()=>sha256(ascii("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")),"248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"],
+  ["SHA-256 one million \"a\"",()=>sha256(new Uint8Array(1e6).fill(97)),"cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"],
+  ["HMAC RFC 4231 case 1",()=>hmac(new Uint8Array(20).fill(0x0b),ascii("Hi There")),"b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"],
+  ["HMAC RFC 4231 case 2",()=>hmac(ascii("Jefe"),ascii("what do ya want for nothing?")),"5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"],
+];
+let verified=false;
+async function runVerify(){
+  verified=true; const t0=performance.now(); let pass=0, fail=0;
+  const tb=$("#nist tbody"); tb.innerHTML="";
+  for(const [n,f,want] of NIST){ const got=hex(f()), ok=got===want; ok?pass++:fail++;
+    tb.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td style="color:var(--sub)">${want.length>40?want.slice(0,32)+"…":want}</td><td><span class="pill ${ok?"":"bad"}">${ok?"match":"got "+got.slice(0,12)}</span></td></tr>`); }
+  $("#v-nist").textContent=pass+"/"+NIST.length;
+  const dt=$("#dt tbody"); dt.innerHTML="";
+  const N=150; let total=0, dfail=0;
+  const kinds=[
+    ["AES-128-CBC",async()=>{ const k=rand(16),iv=rand(16),p=rand(Math.random()*400|0); const a=cbc(k,iv,p); const ok=eq(a,await wcAes("CBC",k,iv,p))&&eq(cbc(k,iv,a,true),p); return ok; }],
+    ["AES-256-CBC",async()=>{ const k=rand(32),iv=rand(16),p=rand(Math.random()*400|0); const a=cbc(k,iv,p); return eq(a,await wcAes("CBC",k,iv,p))&&eq(cbc(k,iv,a,true),p); }],
+    ["AES-128-CTR",async()=>{ const k=rand(16),iv=rand(16),p=rand(Math.random()*400|0); iv.fill(255,8,15); return eq(ctr(k,iv,p),await wcAes("CTR",k,iv,p)); }],
+    ["AES-256-GCM",async()=>{ const k=rand(32),iv=rand(12),p=rand(Math.random()*400|0),ad=rand(Math.random()*64|0); const a=gcm(k,iv,p,ad); return eq(a,await wcAes("GCM",k,iv,p,ad))&&eq(gcm(k,iv,a,ad,true),p); }],
+    ["AES-128-GCM tamper",async()=>{ const k=rand(16),iv=rand(12),p=rand(1+(Math.random()*200|0)); const a=gcm(k,iv,p,new Uint8Array(0)); a[Math.random()*a.length|0]^=1<<(Math.random()*8|0); try{ gcm(k,iv,a,new Uint8Array(0),true); return false; }catch(e){ return true; } }],
+    ["SHA-256",async()=>{ const m=rand(Math.random()*400|0); return eq(sha256(m),await wcSha(m)); }],
+    ["HMAC-SHA256",async()=>{ const k=rand(1+(Math.random()*120|0)),m=rand(Math.random()*400|0); return eq(hmac(k,m),await wcHmac(k,m)); }],
+  ];
+  for(const [n,f] of kinds){ let ok=0; for(let i=0;i<N;i++){ if(await f()) ok++; } total+=N; dfail+=N-ok;
+    dt.insertAdjacentHTML("beforeend",`<tr><td>${n}</td><td>${N}</td><td>${ok}</td><td><span class="pill ${ok===N?"":"bad"}">${ok===N?"all":"FAIL"}</span></td></tr>`); }
+  $("#v-diff").textContent=total.toLocaleString(); $("#v-fail").textContent=fail+dfail; $("#v-fail").style.color=fail+dfail?"var(--red)":"var(--green)";
+  $("#v-ms").textContent=Math.round(performance.now()-t0)+" ms";
+  window.__verify={pass,fail,total,dfail};
+}
+$("#rerun").onclick=runVerify;
+
+aesRun(); shaRun();
+if(location.hash==="#verify") document.querySelector('#tabs [data-t="ver"]').click();
+if(location.hash==="#sha") document.querySelector('#tabs [data-t="sha"]').click();
+</script>
+</body>
+</html>
