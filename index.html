@@ -7,13 +7,12 @@
 <meta name="description" content="AES, GCM, SHA-256 and HMAC written from scratch in JavaScript, with every AES round laid open and every result checked against NIST vectors and the browser's own WebCrypto." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
 :root{
   --bg:#0d1014; --card:#141920; --card2:#1a2029; --line:#252d38; --line2:#323c4a;
   --ink:#e8ecf1; --sub:#9aa5b3; --dim:#657080;
   --amber:#f2b84b; --teal:#5fd4c4; --red:#f07167; --green:#7bd88f;
-  --d:"Space Grotesk",system-ui,sans-serif; --m:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --d:system-ui,-apple-system,"Segoe UI",sans-serif; --m:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -31,7 +30,7 @@ section{display:none} section.on{display:block}
 .grid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:18px;align-items:start}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
 .card+.card{margin-top:14px}
-h3{margin:0 0 12px;font-size:11px;font-family:var(--m);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);display:flex;justify-content:space-between;gap:10px}
+h3{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--ink);display:flex;justify-content:space-between;gap:10px}
 h3 em{font-style:normal;color:var(--dim);letter-spacing:.04em;text-transform:none}
 label{display:block;font-size:12px;color:var(--sub);margin:12px 0 5px}
 label:first-of-type{margin-top:0}
@@ -57,7 +56,7 @@ button.ghost:hover{border-color:var(--amber)}
 /* AES inspector */
 .stages{display:flex;gap:14px;flex-wrap:wrap}
 .stage{flex:none}
-.stage .t{font-family:var(--m);font-size:10.5px;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+.stage .t{font-size:12px;color:var(--sub);margin-bottom:6px;display:flex;justify-content:space-between}
 .mat{display:grid;grid-template-columns:repeat(4,38px);grid-template-rows:repeat(4,38px);gap:3px}
 .mat div{display:flex;align-items:center;justify-content:center;font-family:var(--m);font-size:12.5px;font-weight:500;border-radius:4px;color:#0d1014;position:relative}
 .mat div.ch::after{content:"";position:absolute;right:3px;top:3px;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
@@ -81,7 +80,7 @@ button.ghost:hover{border-color:var(--amber)}
 .sched{display:grid;grid-template-columns:repeat(16,1fr);gap:2px}
 .sched div{aspect-ratio:1.6;border-radius:3px;font-family:var(--m);font-size:8.5px;display:flex;align-items:center;justify-content:center;color:#0d1014;overflow:hidden}
 table{width:100%;border-collapse:collapse;font-family:var(--m);font-size:11.5px}
-th{text-align:left;color:var(--dim);font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:0 8px 6px}
+th{text-align:left;color:var(--dim);font-weight:500;font-size:12px;padding:0 8px 6px}
 td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:top;word-break:break-all}
 .rtab{max-height:330px;overflow:auto}
 .rtab td{padding:2px 8px;border-top:0;color:var(--sub)}
@@ -100,7 +99,7 @@ td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:top;word-brea
 <header>
   <div class="brand">Cipher</div>
   <div class="tabs" id="tabs"><button data-t="aes" class="on">AES</button><button data-t="sha">SHA-256</button><button data-t="ver">Verify</button></div>
-  <div class="src">AES, GCM, SHA-256 and HMAC from scratch · <a href="https://github.com/bxzex/cipher">source</a></div>
+  <div class="src">AES, GCM, SHA-256 and HMAC from scratch · <a href="https://github.com/bxzex/cipher">Source</a></div>
 </header>
 <main>
 <!-- ================= AES ================= -->
@@ -209,6 +208,7 @@ td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:top;word-brea
   </div>
 </section>
 </main>
+<footer style="padding:4px 26px 22px;font-size:12px;color:var(--sub)">© 2026 <a href="https://bxzex.com" style="color:inherit">bxzex</a></footer>
 
 <script>
 "use strict";
